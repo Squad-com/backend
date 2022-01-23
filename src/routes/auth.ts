@@ -5,7 +5,6 @@ import User, { IUser } from '../models/user';
 const router = Router();
 
 router.post('/login', (req, res, next) => {
-  console.log(req.body);
   if (!req.body.username)
     return res.status(422).json({ errors: { username: "can't be blank" } });
   if (!req.body.password)
