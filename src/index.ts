@@ -2,6 +2,7 @@ import express, { NextFunction, Request, Response } from 'express';
 import bodyParser from 'body-parser';
 import session from 'express-session';
 import cors from 'cors';
+import cloudinary from 'cloudinary';
 import errorhandler from 'errorhandler';
 import mongoose from 'mongoose';
 import morgan from 'morgan';
@@ -24,8 +25,16 @@ logger.exceptions.handle(new transports.File({ filename: 'exceptions.log' }));
 app.use(cors({ origin: true, credentials: true }));
 app.use(morgan('dev'));
 
-app.use(bodyParser.urlencoded({ extended: true }));
-app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
+app.use(bodyParser.json({ limit: '50mb' }));
+
+// apply global config cloudinary
+cloudinary.v2.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+  secure: true,
+});
 
 app.use(
   session({

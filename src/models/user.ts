@@ -22,6 +22,10 @@ export interface IUser extends Document {
     user: IUser;
     score: number;
   }>;
+  dislikePost: (postId: Schema.Types.ObjectId) => Promise<{
+    user: IUser;
+    score: number;
+  }>;
 }
 
 const UserSchema = new Schema<IUser>({
@@ -115,6 +119,37 @@ UserSchema.methods.likePost = function (postId) {
   if (likeIndex === -1) {
     this.likedPosts.push(postId);
     score += 1; // like is added
+  }
+
+  return new Promise((resolve, reject) => {
+    this.save()
+      .then((user) =>
+        resolve({
+          user,
+          score,
+        })
+      )
+      .catch(reject);
+  });
+};
+
+UserSchema.methods.dislikePost = function (postId) {
+  const dislikeIndex = this.dislikedPosts.indexOf(postId);
+  const likeIndex = this.likedPosts.indexOf(postId);
+
+  // this is the number that how much post score will change
+  let score = 0;
+
+  // if post is disliked then remove dislike
+  if (likeIndex !== -1) {
+    this.likedPosts.splice(likeIndex, 1);
+    score -= 1; // dislike is removed
+  }
+
+  // if post is not already liked
+  if (dislikeIndex === -1) {
+    this.dislikedPosts.push(postId);
+    score -= 1; // like is added
   }
 
   return new Promise((resolve, reject) => {

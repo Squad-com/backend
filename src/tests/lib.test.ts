@@ -1,3 +1,8 @@
-test('First test ', () => {
-  throw new Error('There is an error');
+describe('First', () => {
+  it('First test ', () => {
+    const mockFunction = jest.fn();
+    mockFunction.mockReturnValue(1);
+    const result = mockFunction();
+    expect(result).toBe(1);
+  });
 });

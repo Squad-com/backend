@@ -1,7 +1,7 @@
 import passport from 'passport';
 import { Strategy } from 'passport-local';
 import { Router } from 'express';
-import user from '../models/user';
+import user from '../models/User';
 
 const router = Router();
 

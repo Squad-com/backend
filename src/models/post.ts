@@ -1,5 +1,5 @@
 import { Document, model, Schema } from 'mongoose';
-import { IUser } from './user';
+import { IUser } from './User';
 
 export enum Vote {
   UP = 'UP',
@@ -8,11 +8,13 @@ export enum Vote {
 export interface IPost extends Document {
   author: Schema.Types.ObjectId;
   description: string;
-  images: string[];
+  images: String[];
   score: number;
   toJSONfor: (user: IUser) => any;
   updateScore: (score: number) => Promise<IPost>;
 }
+
+// SCHEMA
 const PostSchema = new Schema<IPost>({
   author: { type: Schema.Types.ObjectId, ref: 'User' },
   description: { type: String, required: true },
