@@ -10,6 +10,8 @@ export interface IPost extends Document {
   description: string;
   images: String[];
   score: number;
+  createdAt: Date;
+  rootComment: Schema.Types.ObjectId;
   toJSONfor: (user: IUser) => any;
   updateScore: (score: number) => Promise<IPost>;
 }
@@ -19,6 +21,8 @@ const PostSchema = new Schema<IPost>({
   author: { type: Schema.Types.ObjectId, ref: 'User' },
   description: { type: String, required: true },
   score: { type: Number, default: 0 },
+  createdAt: { type: Schema.Types.Date, default: new Date() },
+  rootComment: { type: Schema.Types.ObjectId, ref: 'Comment', required: true },
   images: [String],
 });
 

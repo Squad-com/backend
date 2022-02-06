@@ -9,6 +9,7 @@ import morgan from 'morgan';
 import userRoutes from './routes/user';
 import authRoutes from './routes/auth';
 import postRoutes from './routes/post';
+import commentRoutes from './routes/comment';
 import dotenv from 'dotenv';
 import passportConfig from './middlewares/passport';
 import logger from './utils/logger';
@@ -58,6 +59,7 @@ mongoose.set('debug', true);
 app.use('/auth', authRoutes);
 app.use('/users', userRoutes);
 app.use('/posts', postRoutes);
+app.use('/comments', commentRoutes);
 
 // catch unexisting routes
 app.use((req: Request, _, next) => {
