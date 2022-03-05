@@ -1,17 +1,17 @@
+import { Router } from 'express';
 import passport from 'passport';
 import { Strategy } from 'passport-local';
-import { Router } from 'express';
-import user from '../models/User';
+import userModel from '../user/user.model';
 
-const router = Router();
+const passportMiddleware = Router();
 
-router.use(passport.initialize());
+passportMiddleware.use(passport.initialize());
 
-router.use(passport.session());
+passportMiddleware.use(passport.session());
 
 passport.use(
   new Strategy((username, passport, done) => {
-    user
+    userModel
       .findOne({ username: username })
       .then((user) => {
         done(null, user);
@@ -20,4 +20,4 @@ passport.use(
   })
 );
 
-export default router;
+export default passportMiddleware;

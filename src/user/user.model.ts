@@ -1,6 +1,6 @@
-import { Schema, Document, model } from 'mongoose';
 import crypto, { BinaryLike } from 'crypto';
 import jwt from 'jsonwebtoken';
+import { Document, model, Schema } from 'mongoose';
 import config from '../config';
 
 export interface IUser extends Document {
@@ -98,6 +98,15 @@ UserSchema.methods.toAuthJSON = function () {
     username: this.username,
     email: this.email,
     bio: this.bio,
+    image: this.image,
+  };
+};
+
+UserSchema.methods.toNetworkJSON = function () {
+  return {
+    firstName: this.firstName,
+    lastName: this.lastName,
+    username: this.username,
     image: this.image,
   };
 };

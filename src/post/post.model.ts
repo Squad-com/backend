@@ -1,5 +1,5 @@
 import { Document, model, Schema } from 'mongoose';
-import { IUser } from './User';
+import { IUser } from '../user/user.model';
 
 export enum Vote {
   UP = 'UP',
@@ -33,6 +33,7 @@ PostSchema.methods.toJSONfor = function (user: IUser) {
     description: this.description,
     images: this.images,
     score: this.score,
+    rootComment: this.rootComment,
     voteState: user.likedPosts.includes(this._id)
       ? Vote.UP
       : user.dislikedPosts.includes(this._id)
@@ -43,7 +44,7 @@ PostSchema.methods.toJSONfor = function (user: IUser) {
   return networkPost;
 };
 
-PostSchema.methods.updateScore = function (score) {
+PostSchema.methods.updateScore = function (score: number) {
   this.score += score;
   return this.save();
 };

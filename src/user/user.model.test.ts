@@ -1,10 +1,10 @@
-import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
-import config from '../../config';
-import User from '../../models/User';
+import jwt from 'jsonwebtoken';
+import config from '../config';
+import userModel from './user.model';
 
 const getTestUser = () =>
-  new User({
+  new userModel({
     firstName: 'test',
     lastName: 'lastName',
     username: 'test',
