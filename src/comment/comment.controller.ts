@@ -69,14 +69,14 @@ class CommentController implements Controller {
       author,
     });
 
-    return newComment
-      .save()
-      .then((comment: IComment) =>
-        parentComment!
-          .addReply(comment.id)
-          .then(() => response.status(201).json(newComment))
-      )
-      .catch(next);
+    // return newComment
+    //   .save()
+    //   .then((comment: IComment) =>
+    //     parentComment!
+    //       .addReply(comment.id)
+    //       .then(() => response.status(201).json(newComment))
+    //   )
+    //   .catch(next);
   };
 
   private getComment = (
@@ -97,22 +97,21 @@ class CommentController implements Controller {
     response: Response,
     next: NextFunction
   ) => {
-    const owner = request.comment?.author.toString();
-    if (owner !== request.user.id)
-      return response
-        .status(403)
-        .json({ error: 'You have no permission to delete this comment' });
-    request.comment?.remove({}, (error, result: IComment) => {
-      if (error) return next(error);
-
-      return this.comment
-        .findById(result.parent)
-        .then((parent) => parent?.deleteReply(result.id))
-        .catch(() => {
-          this.logger.error('This comment has no parent');
-        })
-        .finally(() => response.sendStatus(204));
-    });
+    // const owner = request.comment?.author.toString();
+    // if (owner !== request.user.id)
+    //   return response
+    //     .status(403)
+    //     .json({ error: 'You have no permission to delete this comment' });
+    // request.comment?.remove({}, (error, result: IComment) => {
+    //   if (error) return next(error);
+    //   return this.comment
+    //     .findById(result.parent)
+    //     .then((parent) => parent?.deleteReply(result.id))
+    //     .catch(() => {
+    //       this.logger.error('This comment has no parent');
+    //     })
+    //     .finally(() => response.sendStatus(204));
+    // });
   };
 }
 

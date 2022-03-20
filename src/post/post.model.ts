@@ -1,51 +1,97 @@
 import { Document, model, Schema } from 'mongoose';
 import { IUser } from '../user/user.model';
+import autopopulate from '../utils/autopopulate';
 
-export enum Vote {
-  UP = 'UP',
-  DOWN = 'DOWN',
+export enum VoteEnum {
+  UP = 1,
+  DOWN = -1,
 }
+
 export interface IPost extends Document {
   author: Schema.Types.ObjectId;
   description: string;
   images: String[];
   score: number;
-  createdAt: Date;
-  rootComment: Schema.Types.ObjectId;
-  toJSONfor: (user: IUser) => any;
-  updateScore: (score: number) => Promise<IPost>;
+  votes: { userId: Schema.Types.ObjectId; voteStatus: VoteEnum }[];
+  comments: [Schema.Types.ObjectId];
+  toNetworkJSON: (user: IUser) => any;
+  votePost: (user: IUser, vote: VoteEnum) => Promise<any>;
+  getVoteState: (user: IUser) => VoteEnum | null;
 }
 
-// SCHEMA
-const PostSchema = new Schema<IPost>({
-  author: { type: Schema.Types.ObjectId, ref: 'User' },
-  description: { type: String, required: true },
-  score: { type: Number, default: 0 },
-  createdAt: { type: Schema.Types.Date, default: new Date() },
-  rootComment: { type: Schema.Types.ObjectId, ref: 'Comment', required: true },
-  images: [String],
+const UserVote = new Schema({
+  userId: { type: Schema.Types.ObjectId, ref: 'User' },
+  voteStatus: {
+    type: String,
+    enum: [VoteEnum.DOWN, VoteEnum.UP],
+  },
 });
 
-PostSchema.methods.toJSONfor = function (user: IUser) {
+// SCHEMA
+const PostSchema = new Schema<IPost>(
+  {
+    author: { type: Schema.Types.ObjectId, ref: 'User' },
+    description: { type: String, required: true },
+    score: { type: Number, default: 0 },
+    comments: [{ type: Schema.Types.ObjectId, ref: 'Comment' }],
+    votes: [UserVote],
+    images: [String],
+  },
+  { timestamps: true }
+);
+
+const commonPopulation = [
+  {
+    path: 'author',
+    select: ['firstName', 'lastName', 'image'],
+  },
+];
+
+// pre defines
+PostSchema.pre('findOne', autopopulate(commonPopulation))
+  .pre('find', autopopulate(commonPopulation))
+  .pre('save', autopopulate(commonPopulation));
+
+PostSchema.methods.toNetworkJSON = function (user: IUser) {
   const networkPost = {
     id: this._id,
     author: this.author,
     description: this.description,
     images: this.images,
-    score: this.score,
-    rootComment: this.rootComment,
-    voteState: user.likedPosts.includes(this._id)
-      ? Vote.UP
-      : user.dislikedPosts.includes(this._id)
-      ? Vote.DOWN
-      : null,
+    score: this.votes.reduce(
+      (acc, cur) => acc.valueOf() + +cur.voteStatus.valueOf(),
+      0
+    ),
+    voteState: +(
+      this.votes.find(({ userId }) => userId.valueOf() === user.id)
+        ?.voteStatus || 0
+    ),
+    comments: this.comments.length,
   };
 
   return networkPost;
 };
 
-PostSchema.methods.updateScore = function (score: number) {
-  this.score += score;
+PostSchema.methods.votePost = function (user: IUser, vote: VoteEnum) {
+  const userIndex = this.votes.findIndex(
+    ({ userId }) => userId === user.id.valueOf()
+  );
+  const postIndex = user.votedPosts.findIndex(
+    ({ postId }) => postId === this.id
+  );
+
+  if (userIndex !== -1) {
+    this.votes[userIndex].voteStatus = vote;
+  } else {
+    this.votes.push({ userId: user.id.valueOf(), voteStatus: vote });
+  }
+
+  if (postIndex !== -1) {
+    user.votedPosts[postIndex].voteStatus = vote;
+  } else {
+    user.votedPosts.push({ postId: this.id, voteStatus: vote });
+  }
+
   return this.save();
 };
 

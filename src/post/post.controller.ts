@@ -3,9 +3,11 @@ import commentModel from '../comment/comment.model';
 import Controller from '../interfaces/controller.interface';
 import RequestWithUser from '../interfaces/requestWithUser.interface';
 import authMiddleware from '../middlewares/auth.middleware';
+import validationMiddleware from '../middlewares/validation.middleware';
 import userModel from '../user/user.model';
 import upload from '../utils/upload';
 import uploadImage from '../utils/uploadImage';
+import { CreatePostDto, VotePostDTO } from './post.dto';
 import postModel, { IPost } from './post.model';
 
 export interface PostParamRequest extends RequestWithUser {
@@ -34,10 +36,21 @@ class PostController implements Controller {
       `/`,
       authMiddleware,
       upload.single('image'),
+      validationMiddleware(CreatePostDto),
       this.createPost
     );
-    this.router.patch('/:post/like', authMiddleware, this.likePost);
-    this.router.patch('/:post/dislike', authMiddleware, this.dislikePost);
+
+    // Vote endpoints
+    this.router.post(
+      '/:post/vote',
+      authMiddleware,
+      validationMiddleware(VotePostDTO),
+      this.votePost
+    );
+
+    // Comment endpoints
+    this.router.post('/:post/comments', authMiddleware, this.addComment);
+    this.router.get('/:post/comments', authMiddleware, this.getPostComments);
   }
 
   private getPostParam = (
@@ -46,24 +59,17 @@ class PostController implements Controller {
     next: NextFunction,
     postId: string
   ) => {
-    // find post and populate author
-    this.post
-      .findById(postId)
-      .populate({
-        path: 'author',
-        select: ['firstName', 'lastName', 'image'],
-      })
-      .exec((err, post) => {
-        if (err) return next(err);
-        // if no post then return NOT FOUND response
-        if (!post) return response.sendStatus(404);
+    this.post.findById(postId).exec((err, post) => {
+      if (err) return next(err);
+      // if no post then return NOT FOUND response
+      if (!post) return response.sendStatus(404);
 
-        // pass post as param
-        request.post = post;
+      // pass post as param
+      request.post = post;
 
-        // move to next middleware
-        return next();
-      });
+      // move to next middleware
+      return next();
+    });
   };
 
   private getAllPosts = async (
@@ -74,17 +80,14 @@ class PostController implements Controller {
     // get all posts
     this.post
       .find()
-      .populate({
-        path: 'author',
-        select: ['firstName', 'lastName', 'image'],
-      })
-      .populate({ path: 'rootComment', select: 'replies' })
       .sort({ createdAt: -1 })
       .exec(function (err, posts) {
         if (err) return next(err);
 
         // return all posts
-        response.json(posts.map((post) => post.toJSONfor(request.user)));
+        return response.json(
+          posts.map((post) => post.toNetworkJSON(request.user))
+        );
       });
   };
 
@@ -93,67 +96,51 @@ class PostController implements Controller {
     response: Response,
     next: NextFunction
   ) => {
-    const { description } = request.body;
-
-    // if no description then return error
-    if (!description) {
-      return response
-        .status(422)
-        .json({ errors: { description: "can't be blank" } });
-    }
-
-    const rootComment = new this.comment({
+    const image = request.file ? await uploadImage(request.file.buffer) : null;
+    return new this.post({
       author: request.user.id,
-      content: ' ',
-    });
-
-    return rootComment
+      images: [image].filter(Boolean),
+      description: request.body.description,
+    })
       .save()
-      .then((comment) =>
-        Promise.resolve(
-          request.file ? uploadImage(request.file.buffer) : null
-        ).then((image) => {
-          const newPost = new this.post({
-            author: request.user.id,
-            images: [image].filter(Boolean),
-            rootComment: comment.id,
-            description,
-          });
-          return newPost
-            .save()
-            .then((result) => response.status(201).json(result));
-        })
-      )
+      .then((result) => response.json(result))
       .catch(next);
   };
 
-  private likePost = (
+  private votePost = (
     request: PostParamRequest,
     response: Response,
     next: NextFunction
   ) => {
-    request.user
-      .likePost(request.post.id)
-      .then(({ user, score }) => {
-        return request.post?.updateScore(score).then((post) => {
-          response.json(post.toJSONfor(user));
-        });
-      })
+    request.post
+      .votePost(request.user, request.body.dir)
+      .then(() => response.sendStatus(200))
       .catch(next);
   };
 
-  private dislikePost = (
+  private addComment = (
     request: PostParamRequest,
     response: Response,
     next: NextFunction
   ) => {
-    request.user
-      .dislikePost(request.post.id)
-      .then(({ user, score }) => {
-        return request.post?.updateScore(score).then((post) => {
-          response.json(post.toJSONfor(user));
-        });
+    new this.comment({ content: request.body.comment, author: request.user.id })
+      .save()
+      .then(async (result) => {
+        request.post.comments.unshift(result.id);
+        await request.post.save();
+        response.json(result);
       })
+      .catch(next);
+  };
+
+  private getPostComments = (
+    request: PostParamRequest,
+    response: Response,
+    next: NextFunction
+  ) => {
+    this.comment
+      .find({ _id: { $in: request.post.comments } })
+      .then((data) => response.json(data))
       .catch(next);
   };
 }

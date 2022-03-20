@@ -1,7 +1,8 @@
 import crypto, { BinaryLike } from 'crypto';
 import jwt from 'jsonwebtoken';
-import { Document, model, Schema } from 'mongoose';
+import { Document, model, Schema, Types } from 'mongoose';
 import config from '../config';
+import { VoteEnum } from '../post/post.model';
 
 export interface IUser extends Document {
   firstName: string;
@@ -10,29 +11,28 @@ export interface IUser extends Document {
   email: string;
   bio: string;
   image: string;
-  likedPosts: Schema.Types.ObjectId[];
-  dislikedPosts: Schema.Types.ObjectId[];
   hash: BinaryLike;
   salt: BinaryLike;
+  votedPosts: { postId: string; voteStatus: number }[];
   validPassword: (password: BinaryLike) => boolean;
   setPassword: (password: BinaryLike) => void;
   generateJWT: () => string;
   toAuthJSON: () => any;
-  likePost: (postId: Schema.Types.ObjectId) => Promise<{
-    user: IUser;
-    score: number;
-  }>;
-  dislikePost: (postId: Schema.Types.ObjectId) => Promise<{
-    user: IUser;
-    score: number;
-  }>;
 }
+
+const VotedPostSchema = new Schema({
+  postId: { type: Types.ObjectId, ref: 'Post' },
+  voteStatus: {
+    type: String,
+    enum: [VoteEnum.DOWN, VoteEnum.UP],
+  },
+});
 
 const UserSchema = new Schema<IUser>({
   firstName: {
     type: String,
     required: [true, 'cannot be blank'],
-    match: [/^[a-zA-Z]+$/, 'is invalid'],
+    match: [/^[a-zA-Z/ /]+$/, 'is invalid'],
   },
   lastName: {
     type: String,
@@ -55,8 +55,7 @@ const UserSchema = new Schema<IUser>({
     match: [/\S+@\S+\.\S+/, 'is invalid'],
     index: true,
   },
-  likedPosts: [{ type: Schema.Types.ObjectId, ref: 'Post' }],
-  dislikedPosts: [{ type: Schema.Types.ObjectId, ref: 'Post' }],
+  votedPosts: [VotedPostSchema],
   image: String,
   hash: String,
   salt: String,
@@ -109,68 +108,6 @@ UserSchema.methods.toNetworkJSON = function () {
     username: this.username,
     image: this.image,
   };
-};
-
-UserSchema.methods.likePost = function (postId) {
-  const dislikeIndex = this.dislikedPosts.indexOf(postId);
-  const likeIndex = this.likedPosts.indexOf(postId);
-
-  // this is the number that how much post score will change
-  let score = 0;
-
-  // if post is disliked then remove dislike
-  if (dislikeIndex !== -1) {
-    this.dislikedPosts.splice(dislikeIndex, 1);
-    score += 1; // dislike is removed
-  }
-
-  // if post is not already liked
-  if (likeIndex === -1) {
-    this.likedPosts.push(postId);
-    score += 1; // like is added
-  }
-
-  return new Promise((resolve, reject) => {
-    this.save()
-      .then((user) =>
-        resolve({
-          user,
-          score,
-        })
-      )
-      .catch(reject);
-  });
-};
-
-UserSchema.methods.dislikePost = function (postId) {
-  const dislikeIndex = this.dislikedPosts.indexOf(postId);
-  const likeIndex = this.likedPosts.indexOf(postId);
-
-  // this is the number that how much post score will change
-  let score = 0;
-
-  // if post is disliked then remove dislike
-  if (likeIndex !== -1) {
-    this.likedPosts.splice(likeIndex, 1);
-    score -= 1; // dislike is removed
-  }
-
-  // if post is not already liked
-  if (dislikeIndex === -1) {
-    this.dislikedPosts.push(postId);
-    score -= 1; // like is added
-  }
-
-  return new Promise((resolve, reject) => {
-    this.save()
-      .then((user) =>
-        resolve({
-          user,
-          score,
-        })
-      )
-      .catch(reject);
-  });
 };
 
 export default model('User', UserSchema);

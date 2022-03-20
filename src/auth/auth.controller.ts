@@ -1,7 +1,10 @@
 import { NextFunction, Request, Response, Router } from 'express';
 import passport from 'passport';
+import WrongCredentialsException from '../exceptions/WrongCredentialsException';
 import Controller from '../interfaces/controller.interface';
+import validationMiddleware from '../middlewares/validation.middleware';
 import userModel from '../user/user.model';
+import { LoginDto, RegisterDto } from './auth.dto';
 
 class AuthController implements Controller {
   public path = '/auth';
@@ -13,8 +16,12 @@ class AuthController implements Controller {
   }
 
   private initializeRoutes() {
-    this.router.post(`/login`, this.login);
-    this.router.post(`/register`, this.register);
+    this.router.post(`/login`, validationMiddleware(LoginDto), this.login);
+    this.router.post(
+      `/register`,
+      validationMiddleware(RegisterDto),
+      this.register
+    );
   }
 
   private login = async (
@@ -22,23 +29,13 @@ class AuthController implements Controller {
     response: Response,
     next: NextFunction
   ) => {
-    if (!request.body.username)
-      return response
-        .status(422)
-        .json({ errors: { username: "can't be blank" } });
-    if (!request.body.password)
-      return response
-        .status(422)
-        .json({ errors: { password: "can't be blank" } });
     passport.authenticate('local', { session: true }, (err, user, info) => {
       if (err) return next(err);
       if (user) {
         const token = user.generateJWT();
         return response.json({ token });
       } else {
-        return response
-          .status(422)
-          .json(info || { message: 'username or password is wrong!' });
+        return response.status(422).json(new WrongCredentialsException());
       }
     })(request, response, next);
   };
