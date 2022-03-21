@@ -72,27 +72,4 @@ PostSchema.methods.toNetworkJSON = function (user: IUser) {
   return networkPost;
 };
 
-PostSchema.methods.votePost = function (user: IUser, vote: VoteEnum) {
-  const userIndex = this.votes.findIndex(
-    ({ userId }) => userId === user.id.valueOf()
-  );
-  const postIndex = user.votedPosts.findIndex(
-    ({ postId }) => postId === this.id
-  );
-
-  if (userIndex !== -1) {
-    this.votes[userIndex].voteStatus = vote;
-  } else {
-    this.votes.push({ userId: user.id.valueOf(), voteStatus: vote });
-  }
-
-  if (postIndex !== -1) {
-    user.votedPosts[postIndex].voteStatus = vote;
-  } else {
-    user.votedPosts.push({ postId: this.id, voteStatus: vote });
-  }
-
-  return this.save();
-};
-
 export default model('Post', PostSchema);

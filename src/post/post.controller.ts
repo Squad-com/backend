@@ -1,5 +1,7 @@
-import { NextFunction, Response, Router } from 'express';
-import commentModel from '../comment/comment.model';
+import { NextFunction, Request, Response, Router } from 'express';
+import commentModel, { IComment } from '../comment/comment.model';
+import CommentNotFoundException from '../exceptions/CommentNotFoundException';
+import PostNotFoundException from '../exceptions/PostNotFoundException';
 import Controller from '../interfaces/controller.interface';
 import RequestWithUser from '../interfaces/requestWithUser.interface';
 import authMiddleware from '../middlewares/auth.middleware';
@@ -12,6 +14,10 @@ import postModel, { IPost } from './post.model';
 
 export interface PostParamRequest extends RequestWithUser {
   post: IPost;
+}
+
+export interface CommentParamRequest extends RequestWithUser {
+  comment: IComment;
 }
 
 class PostController implements Controller {
@@ -28,6 +34,7 @@ class PostController implements Controller {
 
   private initializeParams() {
     this.router.param('post', this.getPostParam);
+    this.router.param('comment', this.getCommentParam);
   }
 
   private initializeRoutes() {
@@ -61,13 +68,31 @@ class PostController implements Controller {
   ) => {
     this.post.findById(postId).exec((err, post) => {
       if (err) return next(err);
-      // if no post then return NOT FOUND response
-      if (!post) return response.sendStatus(404);
+      if (!post) return next(new PostNotFoundException(postId));
 
       // pass post as param
       request.post = post;
 
       // move to next middleware
+      return next();
+    });
+  };
+
+  private getCommentParam = (
+    request: PostParamRequest & CommentParamRequest,
+    response: Response,
+    next: NextFunction,
+    commentId: string
+  ) => {
+    if (!request.post.comments.find((id) => id.toString() === commentId)) {
+      next(new CommentNotFoundException(commentId));
+    }
+    this.comment.findById(request.post.comments).exec((error, result) => {
+      if (error) return next(error);
+      if (!result) return next(new PostNotFoundException(commentId));
+
+      request.comment = result;
+
       return next();
     });
   };
@@ -112,8 +137,29 @@ class PostController implements Controller {
     response: Response,
     next: NextFunction
   ) => {
-    request.post
-      .votePost(request.user, request.body.dir)
+    const { post, user } = request;
+    const vote = request.body.dir;
+    const userIndex = post.votes.findIndex(
+      ({ userId }) => userId === user.id.valueOf()
+    );
+    const postIndex = user.votedPosts.findIndex(
+      ({ postId }) => postId === post.id
+    );
+
+    if (userIndex !== -1) {
+      post.votes[userIndex].voteStatus = vote;
+    } else {
+      post.votes.push({ userId: user.id.valueOf(), voteStatus: vote });
+    }
+
+    if (postIndex !== -1) {
+      user.votedPosts[postIndex].voteStatus = vote;
+    } else {
+      user.votedPosts.push({ postId: post.id, voteStatus: vote });
+    }
+
+    post
+      .save()
       .then(() => response.sendStatus(200))
       .catch(next);
   };
